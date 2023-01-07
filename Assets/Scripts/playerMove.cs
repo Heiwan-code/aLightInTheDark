@@ -11,44 +11,85 @@ public class playerMove : MonoBehaviour
 	private SpriteRenderer playerSprite;
     public float dashCooldownF = 0.12F;
     public bool dashAvailable = true;
-    public float movespeed = 5F;
     public float dashSpeed = 2.3F;
+    private Animator anim;
+	private UnitStats stats;
+	private float moveSpeed;
+	private float baseDrag;
+	[SerializeField] AudioSource stepRock;
     // Start is called before the first frame update
     void Start()
     {
         playerRb = GetComponent<Rigidbody2D>();
         playerSprite = GetComponent<SpriteRenderer>();
-    }
+		anim = GetComponent<Animator>();
+		stats = GetComponent<UnitStats>();
+		moveSpeed = stats.speed;
+		baseDrag = playerRb.drag;
+		InvokeRepeating("Move",0 , 0.03F);
+	}
 
-    // Update is called once per frame
-    void Update()
+	// Update is called once per frame
+	void Update()
     {
-        movement = new Vector2(Input.GetAxis("Horizontal") * 0.03F ,Input.GetAxis("Vertical") * 0.03F);
-		playerRb.AddForce(new Vector2(movement.x * movespeed, movement.y * movespeed), ForceMode2D.Impulse);
-
-        useDash();
+		Dash();
     }
 
-    void useDash ()
+    private void Move ()
+    {
+		movement = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized;
+
+		float x = movement.x;
+		float y = movement.y;
+        if ( Mathf.Abs(x) > Mathf.Abs(y) )
+        {
+			anim.SetFloat("y", 0);
+            anim.SetFloat("x", x);
+		} else
+        {
+			anim.SetFloat("x", 0);
+			anim.SetFloat ("y", y);
+        }
+
+		if ( Mathf.Abs(x) > 0 || Mathf.Abs(y) > 0 )
+		{
+			if ( !stepRock.isPlaying )
+			{
+				stepRock.Play();
+			}
+		} else
+		{
+			if ( stepRock.isPlaying )
+			{
+				stepRock.Pause();
+			}
+		}
+		playerRb.AddForce(new Vector2(movement.x * 0.3F * moveSpeed, movement.y * 0.3F * moveSpeed), ForceMode2D.Impulse);
+	}
+
+    private void Dash ()
     {
 		if ( Input.GetButtonDown("Jump") && dashAvailable )
 		{
-			var m_NewColor = new Color(0.95F, 0.01F, 0.01F, 1F);
-			playerSprite.color = m_NewColor;
-            playerRb.drag = 40;
-			playerRb.AddForce(new Vector2(movement.x * 900F * dashSpeed, movement.y * 900F * dashSpeed), ForceMode2D.Impulse);
+			StartCoroutine(Dashing());
 			StartCoroutine(DashCooldown());
 		}
 	}
 
-	public IEnumerator DashCooldown ()
+	private IEnumerator Dashing ()
 	{
-        Debug.Log("Cooldown start");
 		dashAvailable = false;
+		anim.SetBool("dashing", true);
+		playerRb.drag = 30;
+		playerRb.AddForce(new Vector2(movement.x * 900F * dashSpeed, movement.y * 900F * dashSpeed), ForceMode2D.Impulse);
+		yield return new WaitForSeconds(0.7F);
+		anim.SetBool("dashing", false);
+	}
+
+	private IEnumerator DashCooldown ()
+	{
+		playerRb.drag = baseDrag;
 		yield return new WaitForSeconds(dashCooldownF);
 		dashAvailable = true;
-        playerRb.drag = 65;
-		playerSprite.color = new Color(0.9F, 0.9F, 0.9F, 1F);
-		Debug.Log("Cooldown end");
 	}
 }
